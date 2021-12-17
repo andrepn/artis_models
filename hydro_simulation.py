@@ -2,35 +2,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 
-# hydrogen market assumptions
-# from Road Map to a US hydrogen Ecosystem
-# numbers for US
-# assuming realized price of $2/kg for hydrogen produced
-hydrogen_revenue_per_year_2021: float = 17600000000  # USD
-hydrogen_revenue_per_year_2030: float = 140000000000  # USD
-
-
-potential_derivatives_market_multiplier: int = 5
-time_until_artis_launch_in_days: int = 365
-percent_of_potential_market_captured_on_day_one: float = 1
-artis_trading_fee = 0.002  # .2%
-
-# token assumptions
-initial_token_supply = 1000000000  # HET
-tokens_held_by_hydrogen_project = 0  # HET
-
-# create mock physical hydrogen investments
+ARTIS_TRADING_FEE = 0.002  # .2%
 PROFIT_PER_SCF: float = 0.0002  # USD
-PROFIT_PER_KG = PROFIT_PER_SCF * 423.3  # 423 scf in 1 kg
-# simulate 1 project transporting x volume per day
-scf_moved_per_day: list = 42000000000
-kg_moved_per_day = scf_moved_per_day / 423.3  # 423 scf in 1 kg
+PROFIT_PER_KG = PROFIT_PER_SCF * 423.3  # 423 scf in 1 kg then per million
+
 
 # tokens generated from data per day with artis
-# log is a simple choice for a function that decreases with scale
+# sqrt is a simple choice for a function that decreases with scale
 # reporting gives a public and open source data feed for regulators to monitor
 def tokens_generated_with_artis(kg: float) -> float:
-    tokens = np.log(kg)
+    tokens = np.sqrt(kg)
     return tokens
 
 
@@ -76,8 +57,8 @@ def simulate_hydrogen_projects(
     percent_of_potential_market_captured_on_day_one,
     tokens_held_by_hydrogen_project,
     initial_token_supply,
-    artis_trading_fee,
     kg_moved_per_day,
+    growth_in_kg_moved,
 ) -> dict:
 
     number_of_days = number_of_years * 365
@@ -88,9 +69,7 @@ def simulate_hydrogen_projects(
     implied_kg_of_hydrogen_produced_start = (
         hydrogen_revenue_start_year / 2
     )  # billion kg
-    implied_kg_of_hydrogen_pruduced_end = (
-        hydrogen_revenue_per_year_2030 / 2
-    )  # billion kg
+    implied_kg_of_hydrogen_pruduced_end = hydrogen_revenue_end_year / 2  # billion kg
 
     # assume linear growth
     growth_in_hydro_kg_produced_per_day = (
@@ -103,12 +82,23 @@ def simulate_hydrogen_projects(
     list_of_rev_with_artis = list()
 
     for day in range(0, number_of_days):
-        kg_moved_on_day = kg_moved_per_day * (random.randint(-1, 2) * 0.01)
+        if day == 0:
+            kg_moved_on_day = kg_moved_per_day
+        else:
+            kg_moved_on_day = (
+                kg_moved_on_day
+                + (kg_moved_per_day * random.randrange(-2, 3) * 0.005)
+                + growth_in_kg_moved
+            )  # * (
+            #    random.randint(-10, 10) * 0.1
+            # )
+
         list_of_rev_no_artis.append(kg_moved_on_day * PROFIT_PER_KG)
 
-        total_hydro_market = (
-            hydrogen_revenue_start_year + growth_in_hydro_market_per_day * day
-        )
+        if day == 0:
+            total_hydro_market = hydrogen_revenue_start_year
+        else:
+            total_hydro_market = total_hydro_market + growth_in_hydro_market_per_day
 
         total_kg_produced = (
             implied_kg_of_hydrogen_produced_start
@@ -122,7 +112,7 @@ def simulate_hydrogen_projects(
         else:
             # assume our market capture grows randomly between -.01 and .05% per day
             percent_of_derivatives_market_capture = (
-                percent_of_derivatives_market_capture + random.randint(-1, 5) * 0.01
+                percent_of_derivatives_market_capture + 0.2 * random.randint(-1, 5)
             )
 
         volume_on_artis = get_volume_on_artis(
@@ -131,7 +121,7 @@ def simulate_hydrogen_projects(
             percent_of_derivatives_market_capture,
         )
 
-        fee_to_equity, fee_to_tokens = fee_dividends(volume_on_artis, artis_trading_fee)
+        fee_to_equity, fee_to_tokens = fee_dividends(volume_on_artis, ARTIS_TRADING_FEE)
 
         if day == 0:
             tokens_generated = 0
@@ -145,16 +135,15 @@ def simulate_hydrogen_projects(
                 tokens_held_by_hydrogen_project + tokens_generated_for_project
             )
 
-        marginal_revenue_added_by_artis = (
-            tokens_held_by_hydrogen_project / token_supply
-        ) * fee_to_tokens
+            marginal_revenue_added_by_artis = (
+                tokens_held_by_hydrogen_project / token_supply
+            ) * fee_to_tokens
 
-        if day % 100 == 0:
-            print(tokens_held_by_hydrogen_project / token_supply)
-
-        list_of_rev_with_artis.append(
-            (kg_moved_on_day * PROFIT_PER_KG) + marginal_revenue_added_by_artis
-        )
+            list_of_rev_with_artis.append(
+                (kg_moved_on_day * PROFIT_PER_KG) + marginal_revenue_added_by_artis
+            )
+        else:
+            list_of_rev_with_artis.append((kg_moved_on_day * PROFIT_PER_KG))
 
     dict_of_outcomes = {
         "no_artis": list_of_rev_no_artis,
@@ -162,38 +151,3 @@ def simulate_hydrogen_projects(
     }
 
     return dict_of_outcomes
-
-
-if __name__ == "__main__":
-    number_of_years = 8
-    hydrogen_revenue_start_year = hydrogen_revenue_per_year_2021
-    hydrogen_revenue_end_year = hydrogen_revenue_per_year_2030
-
-    dic_of_revenue = simulate_hydrogen_projects(
-        number_of_years,
-        hydrogen_revenue_start_year,
-        hydrogen_revenue_end_year,
-        potential_derivatives_market_multiplier,
-        time_until_artis_launch_in_days,
-        percent_of_potential_market_captured_on_day_one,
-        tokens_held_by_hydrogen_project,
-        initial_token_supply,
-        artis_trading_fee,
-        kg_moved_per_day,
-    )
-
-    x_axis = [day for day in range(0, 365 * number_of_years)]
-    rev_no_artis = dic_of_revenue["no_artis"]
-    rev_with_artis = dic_of_revenue["with_artis"]
-    cum_rev_no_artis = list()
-    cum_rev_with_artis = list()
-
-    for day in x_axis:
-        cum_rev_no_artis.append(sum(rev_no_artis[0:day]))
-        cum_rev_with_artis.append(sum(rev_with_artis[0:day]))
-
-    plt.plot(x_axis, cum_rev_no_artis, label="rev_no_artis")
-    plt.plot(x_axis, cum_rev_with_artis, label="rev_with_artis")
-    plt.legend()
-    plt.savefig("hydro_sim.pdf")
-    plt.show()
