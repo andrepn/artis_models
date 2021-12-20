@@ -18,21 +18,22 @@ def print_title(simulation_conditions):
     plt.close()
 
 
-def plot_marginal_revenue(simulation_conditions, dict_of_revenue):
+def plot_marginal_revenue(index, simulation_conditions, dict_of_revenue):
     x_axis = [day for day in range(0, 365 * simulation_conditions["number_of_years"])]
     rev_no_artis = dict_of_revenue["no_artis"]
     rev_with_artis = dict_of_revenue["with_artis"]
 
-    plt.plot(x_axis, rev_no_artis, label="rev_no_artis")
-    plt.plot(x_axis, rev_with_artis, label="rev_with_artis")
-    plt.title("Marginal Daily Revenue")
+    plt.plot(x_axis, rev_no_artis, label="profit_no_artis")
+    plt.plot(x_axis, rev_with_artis, label="profit_with_artis")
+    plt.title("Marginal Daily Profit ($mm)")
     plt.ylim(ymin=0)
+    plt.xlabel("days")
     plt.legend()
-    pdf.savefig()
+    plt.savefig(f"{index}_daily_profit.png")
     plt.close()
 
 
-def plot_cumulative_revenue(simulation_conditions, dict_of_revenue):
+def plot_cumulative_revenue(index, simulation_conditions, dict_of_revenue):
     x_axis = [day for day in range(0, 365 * simulation_conditions["number_of_years"])]
     rev_no_artis = dict_of_revenue["no_artis"]
     rev_with_artis = dict_of_revenue["with_artis"]
@@ -43,17 +44,19 @@ def plot_cumulative_revenue(simulation_conditions, dict_of_revenue):
         cum_rev_no_artis.append(sum(rev_no_artis[:day]))
         cum_rev_with_artis.append(sum(rev_with_artis[:day]))
 
-    plt.plot(x_axis, cum_rev_no_artis, label="cum_rev_no_artis")
-    plt.plot(x_axis, cum_rev_with_artis, label="cum_rev_with_artis")
-    plt.title("Cumulative Revenue")
+    plt.plot(x_axis, cum_rev_no_artis, label="cum_profit_no_artis")
+    plt.plot(x_axis, cum_rev_with_artis, label="cum_profit_with_artis")
+    plt.title("Cumulative Profit ($mm)")
     plt.ylim(ymin=0)
+    plt.xlabel("days")
     plt.legend()
-    pdf.savefig()
+    plt.savefig(f"{index}_cumulative_profit.png")
     plt.close()
 
 
 if __name__ == "__main__":
     with PdfPages("hydro_simulations.pdf") as pdf:
+        index = 0
         for simulation_conditions in config:
             dict_of_revenue = simulate_hydrogen_projects(
                 simulation_conditions["number_of_years"],
@@ -68,11 +71,11 @@ if __name__ == "__main__":
                 simulation_conditions["initial_token_supply"],
                 simulation_conditions["kg_moved_per_day"],
                 simulation_conditions["growth_in_kg_moved"],
+                simulation_conditions["num_of_producers"],
             )
 
-            print(dict_of_revenue["no_artis"])
-            print(dict_of_revenue["with_artis"])
+            index += 1
 
             print_title(simulation_conditions)
-            plot_marginal_revenue(simulation_conditions, dict_of_revenue)
-            plot_cumulative_revenue(simulation_conditions, dict_of_revenue)
+            plot_marginal_revenue(index, simulation_conditions, dict_of_revenue)
+            plot_cumulative_revenue(index, simulation_conditions, dict_of_revenue)

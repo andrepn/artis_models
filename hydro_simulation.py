@@ -11,7 +11,7 @@ PROFIT_PER_KG = PROFIT_PER_SCF * 423.3  # 423 scf in 1 kg then per million
 # sqrt is a simple choice for a function that decreases with scale
 # reporting gives a public and open source data feed for regulators to monitor
 def tokens_generated_with_artis(kg: float) -> float:
-    tokens = np.sqrt(kg)
+    tokens = np.sqrt(kg) * 3  # tokens generated for producer, transporter, and consumer
     return tokens
 
 
@@ -59,6 +59,7 @@ def simulate_hydrogen_projects(
     initial_token_supply,
     kg_moved_per_day,
     growth_in_kg_moved,
+    num_of_producers,
 ) -> dict:
 
     number_of_days = number_of_years * 365
@@ -87,7 +88,7 @@ def simulate_hydrogen_projects(
         else:
             kg_moved_on_day = (
                 kg_moved_on_day
-                + (kg_moved_per_day * random.randrange(-2, 3) * 0.005)
+                + (kg_moved_per_day * random.randrange(-1, 2) * 0.0025)
                 + growth_in_kg_moved
             )  # * (
             #    random.randint(-10, 10) * 0.1
@@ -112,8 +113,13 @@ def simulate_hydrogen_projects(
         else:
             # assume our market capture grows randomly between -.01 and .05% per day
             percent_of_derivatives_market_capture = (
-                percent_of_derivatives_market_capture + 0.2 * random.randint(-1, 5)
+                percent_of_derivatives_market_capture + 0.04 * random.randint(-1, 2)
+                if percent_of_derivatives_market_capture < 39
+                else percent_of_derivatives_market_capture
             )
+
+        if day % 100 == 0:
+            print(percent_of_derivatives_market_capture)
 
         volume_on_artis = get_volume_on_artis(
             total_hydro_market,
@@ -128,8 +134,18 @@ def simulate_hydrogen_projects(
             token_supply = initial_token_supply
 
         if day >= time_until_artis_launch_in_days:
-            tokens_generated = tokens_generated_with_artis(total_kg_produced)
-            tokens_generated_for_project = tokens_generated_with_artis(kg_moved_per_day)
+            # split production between all producers evenly as assumption
+            seperated_production = total_kg_produced / num_of_producers
+
+            tokens_generated = sum(
+                [
+                    tokens_generated_with_artis(seperated_production)
+                    for x in range(0, num_of_producers)
+                ]
+            )
+            tokens_generated_for_project = (
+                tokens_generated_with_artis(kg_moved_per_day) / 3
+            )  # divide by three since we are only one player
             token_supply = token_supply + tokens_generated
             tokens_held_by_hydrogen_project = (
                 tokens_held_by_hydrogen_project + tokens_generated_for_project
